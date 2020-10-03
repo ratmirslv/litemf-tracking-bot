@@ -1,0 +1,53 @@
+{
+	"name": "litemf-tracking-bot",
+	"version": "0.1.0",
+	"description": "Check LiteMF package updates",
+	"main": "build/index.js",
+	"engines": {
+		"node": "12.x"
+	},
+	"scripts": {
+		"prebuild": "rimraf ./build/*",
+		"build": "tsc",
+		"start": "cross-env NODE_ENV=production node build/index.js",
+		"dev": "tsc-watch --onSuccess \"cross-env NODE_ENV=development node build/index.js\"",
+		"lint": "eslint --ext .js,.ts src"
+	},
+	"keywords": [],
+	"author": "Alex Kondratyuk",
+	"license": "ISC",
+	"husky": {
+		"hooks": {
+			"pre-commit": "pretty-quick --staged"
+		}
+	},
+	"dependencies": {
+		"cheerio": "^1.0.0-rc.3",
+		"cross-env": "^7.0.2",
+		"date-fns": "^2.16.1",
+		"dotenv-safe": "^8.2.0",
+		"lodash": "^4.17.20",
+		"mongoose": "^5.10.7",
+		"ms": "^2.1.2",
+		"node-fetch": "^2.6.1",
+		"telegraf": "^3.38.0"
+	},
+	"devDependencies": {
+		"@types/cheerio": "^0.22.22",
+		"@types/lodash": "^4.14.161",
+		"@types/mongoose": "^5.7.36",
+		"@types/ms": "^0.7.31",
+		"@types/node": "^14.11.2",
+		"@types/node-fetch": "^2.5.7",
+		"@typescript-eslint/eslint-plugin": "^4.3.0",
+		"@typescript-eslint/parser": "^4.3.0",
+		"eslint": "^7.10.0",
+		"husky": "^4.3.0",
+		"is-ci-cli": "^2.1.2",
+		"prettier": "^2.1.2",
+		"pretty-quick": "^3.0.2",
+		"rimraf": "^3.0.2",
+		"tsc-watch": "^4.2.9",
+		"typescript": "^4.0.3"
+	}
+}
