@@ -9,6 +9,14 @@ import { TelegrafContext } from 'telegraf/typings/context'
 import { Chat, ChatModel } from './models/Chat'
 import { checkUpdates } from './utils/checkUpdates'
 
+const helpText = [
+	'Привет!',
+	'Я бот отслеживания посылок. Вот, что я умею:',
+	'/add LPxxxx - добавить новую посылку',
+	'/del LPxxxx - удалить посылку',
+	'/list - список отслеживаемых посылок',
+].join('\n')
+
 async function main() {
 	const bot = new Telegraf(process.env.BOT_TOKEN!)
 
@@ -18,7 +26,9 @@ async function main() {
 			.then(() => true)
 			.catch(() => false)
 
-	bot.start((ctx) => ctx.reply('Привет!'))
+	bot.help((ctx) => ctx.reply(helpText))
+
+	bot.start((ctx) => ctx.reply(helpText))
 
 	bot.catch((err: Error, ctx: TelegrafContext) => {
 		// eslint-disable-next-line no-console
