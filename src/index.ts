@@ -162,12 +162,15 @@ async function main() {
 
 	async function check() {
 		try {
-			const chats = await ChatModel.find()
+			const chatsWithTrackings = await ChatModel.find({
+				trackings: { $exists: true, $ne: [] },
+			})
 
 			const aliveChats: Chat[] = []
 
-			for (const chat of chats) {
+			for (const chat of chatsWithTrackings) {
 				const isAlive = await isChatAlive(chat.chatId)
+
 				if (isAlive) {
 					aliveChats.push(chat)
 				}
@@ -179,13 +182,15 @@ async function main() {
 				await bot.telegram.sendMessage(
 					checkResult.chatId,
 					[
-						checkResult.trackingId,
+						`Информация о посылке ${checkResult.trackingId}`,
 						checkResult.latestTrack.date,
 						checkResult.latestTrack.description,
 						checkResult.latestTrack.name,
+						`\nhttps://litemf.com/ru/tracking/${checkResult.trackingId}`,
 					]
 						.filter(Boolean)
 						.join('\n'),
+					{ disable_web_page_preview: true },
 				)
 			}
 		} catch (err) {

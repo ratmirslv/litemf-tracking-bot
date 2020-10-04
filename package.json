@@ -11,7 +11,10 @@
 		"build": "tsc",
 		"start": "cross-env NODE_ENV=production node build/index.js",
 		"dev": "tsc-watch --onSuccess \"cross-env NODE_ENV=development node build/index.js\"",
-		"lint": "eslint --ext .js,.ts src"
+		"check-types": "tsc --noEmit",
+		"check-format": "prettier src --check",
+		"lint": "eslint --ext .js,.ts src",
+		"validate": "npm run lint && npm run check-types && npm run check-format"
 	},
 	"keywords": [],
 	"author": "Alex Kondratyuk",

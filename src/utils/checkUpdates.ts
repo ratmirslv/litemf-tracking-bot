@@ -38,9 +38,7 @@ export async function checkUpdates(chats: Chat[]): Promise<CheckResult[]> {
 			tracking.lastCheckAt = new Date()
 		}
 
-		if (chat.trackings.length > 0) {
-			await chat.save()
-		}
+		await chat.save()
 	}
 
 	return data
