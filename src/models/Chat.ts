@@ -10,7 +10,7 @@ export interface Chat extends Document {
 		track: {
 			date: string
 			description: string
-			name: string
+			name?: string
 		}[]
 	}[]
 }
@@ -29,7 +29,7 @@ export const ChatModel: Model<Chat> = model<Chat>(
 					{
 						date: { type: String, required: true },
 						description: { type: String, required: true },
-						name: { type: String, required: true },
+						name: { type: String },
 					},
 				],
 			},

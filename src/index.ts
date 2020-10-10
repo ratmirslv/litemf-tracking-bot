@@ -3,32 +3,16 @@ import 'dotenv-safe/config'
 import ms from 'ms'
 import mongoose from 'mongoose'
 import { Telegraf } from 'telegraf'
-import { formatDistanceToNow } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import { TelegrafContext } from 'telegraf/typings/context'
-import { Chat, ChatModel } from './models/Chat'
 import { checkUpdates } from './utils/checkUpdates'
-
-const helpText = [
-	'Привет!',
-	'Я бот отслеживания посылок. Вот, что я умею:',
-	'/add LPxxxx - добавить новую посылку',
-	'/del LPxxxx - удалить посылку',
-	'/list - список отслеживаемых посылок',
-].join('\n')
+import * as commands from './commands'
 
 async function main() {
 	const bot = new Telegraf(process.env.BOT_TOKEN!)
 
-	const isChatAlive = (chatId: string | number): Promise<boolean> =>
-		bot.telegram
-			.sendChatAction(chatId, 'typing')
-			.then(() => true)
-			.catch(() => false)
+	bot.help(commands.help)
 
-	bot.help((ctx) => ctx.reply(helpText))
-
-	bot.start((ctx) => ctx.reply(helpText))
+	bot.start(commands.help)
 
 	bot.catch((err: Error, ctx: TelegrafContext) => {
 		// eslint-disable-next-line no-console
@@ -40,113 +24,13 @@ async function main() {
 		)
 	})
 
-	bot.command('list', async (ctx) => {
-		if (!ctx.chat) {
-			return ctx.reply('?')
-		}
+	bot.command('list', commands.list)
 
-		const savedChat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
+	bot.command('add', commands.add)
 
-		if (!savedChat || savedChat.trackings.length === 0) {
-			return ctx.reply('Ничего нет')
-		}
+	bot.command('del', commands.del)
 
-		return ctx.reply(
-			[
-				'Отслеживаемые посылки:',
-				...savedChat.trackings.map((track) => `- ${track.trackingID}`),
-			].join('\n'),
-		)
-	})
-
-	bot.command('add', async (ctx) => {
-		if (!ctx.chat || !ctx.message?.text) {
-			return ctx.reply('?')
-		}
-
-		const [, trackingID] = ctx.message.text.split(' ')
-
-		if (!/LP\d+/.test(trackingID)) {
-			return ctx.replyWithMarkdown('Неверный формат. Пример: `/add LP123456`')
-		}
-
-		const savedChat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
-
-		if (savedChat) {
-			if (savedChat.trackings.find((track) => track.trackingID === trackingID)) {
-				return ctx.reply(`Посылка ${trackingID} уже отслеживается`)
-			}
-
-			if (savedChat.trackings.length >= 10) {
-				return ctx.reply('Нельзя отслеживать более 10 посылок')
-			}
-
-			savedChat.trackings = [
-				...savedChat.trackings,
-				{ trackingID, createdAt: new Date(), track: [] },
-			]
-
-			await savedChat.save()
-		} else {
-			await ChatModel.create({
-				chatId: String(ctx.chat.id),
-				createdAt: new Date(),
-				trackings: [{ trackingID, createdAt: new Date(), track: [] }],
-			})
-		}
-
-		return ctx.reply(`Посылка ${trackingID} добавлена в список отслеживаемых`)
-	})
-
-	bot.command('del', async (ctx) => {
-		if (!ctx.chat || !ctx.message?.text) {
-			return ctx.reply('?')
-		}
-
-		const [, trackingID] = ctx.message.text.split(' ')
-
-		if (!/LP\d+/.test(trackingID)) {
-			return ctx.replyWithMarkdown('Неверный формат. Пример: `/del LP123456`')
-		}
-
-		const savedChat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
-
-		if (!savedChat) {
-			return ctx.reply(`Посылка ${trackingID} не найдена`)
-		}
-
-		const updatedTrackings = savedChat.trackings.filter(
-			(track) => track.trackingID !== trackingID,
-		)
-
-		if (updatedTrackings.length === savedChat.trackings.length) {
-			return ctx.reply(`Посылка ${trackingID} не найдена`)
-		}
-
-		savedChat.trackings = updatedTrackings
-
-		await savedChat.save()
-
-		return ctx.reply(`Посылка ${trackingID} удалена из списка отслеживаемых`)
-	})
-
-	bot.command('status', async (ctx) => {
-		if (!ctx.chat) {
-			return ctx.reply('?')
-		}
-
-		const chat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
-
-		const latestCheck = chat?.trackings.find((track) => track.lastCheckAt)
-
-		return ctx.reply(
-			`Последняя проверка: ${
-				latestCheck?.lastCheckAt
-					? formatDistanceToNow(latestCheck?.lastCheckAt, { addSuffix: true, locale: ru })
-					: 'никогда'
-			}`,
-		)
-	})
+	bot.command('status', commands.status)
 
 	await bot.launch()
 
@@ -160,48 +44,12 @@ async function main() {
 	// eslint-disable-next-line no-console
 	console.log('Bot started...')
 
-	async function check() {
-		try {
-			const chatsWithTrackings = await ChatModel.find({
-				trackings: { $exists: true, $ne: [] },
-			})
+	// eslint-disable-next-line no-console
+	const safeCheck = () => checkUpdates(bot).catch(console.error.bind(console))
 
-			const aliveChats: Chat[] = []
+	setInterval(safeCheck, ms('15m'))
 
-			for (const chat of chatsWithTrackings) {
-				const isAlive = await isChatAlive(chat.chatId)
-
-				if (isAlive) {
-					aliveChats.push(chat)
-				}
-			}
-
-			const checkResults = await checkUpdates(aliveChats)
-
-			for (const checkResult of checkResults) {
-				await bot.telegram.sendMessage(
-					checkResult.chatId,
-					[
-						`Информация о посылке ${checkResult.trackingId}`,
-						checkResult.latestTrack.date,
-						checkResult.latestTrack.description,
-						checkResult.latestTrack.name,
-						`\nhttps://litemf.com/ru/tracking/${checkResult.trackingId}`,
-					]
-						.filter(Boolean)
-						.join('\n'),
-					{ disable_web_page_preview: true },
-				)
-			}
-		} catch (err) {
-			// eslint-disable-next-line no-console
-			console.error(err)
-		}
-	}
-
-	setInterval(check, ms('15m'))
-
-	check()
+	safeCheck()
 }
 
 main()

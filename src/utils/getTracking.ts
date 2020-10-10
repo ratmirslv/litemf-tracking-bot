@@ -1,9 +1,13 @@
 import fetch from 'node-fetch'
 import cheerio from 'cheerio'
 
-export async function getTracking(
-	trackingID: string,
-): Promise<{ date: string; description: string; name: string }[]> {
+export type TrackRecord = {
+	date: string
+	description: string
+	name?: string
+}
+
+export async function getTracking(trackingID: string): Promise<TrackRecord[]> {
 	const response = await fetch(`https://litemf.com/ru/tracking/${trackingID}`)
 	if (!response.ok) {
 		throw new Error(`Request ${response.url} status ${response.status}`)

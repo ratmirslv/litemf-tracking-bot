@@ -1,45 +1,86 @@
-import { isEqual } from 'lodash'
-import { Chat } from '../models/Chat'
-import { getTracking } from './getTracking'
+import Telegraf from 'telegraf'
+import { TelegrafContext } from 'telegraf/typings/context'
+import { Chat, ChatModel } from '../models/Chat'
+import { TrackRecord } from './getTracking'
+import { getUpdatedTrack } from './getUpdatedTrack'
 
-type CheckResult = {
-	chatId: string
-	trackingId: string
-	latestTrack: { date: string; description: string; name: string }
-}
+export async function checkUpdates<T extends TelegrafContext>(
+	bot: Telegraf<T>,
+): Promise<void> {
+	const isChatAlive = (chatId: string | number): Promise<boolean> =>
+		bot.telegram
+			.sendChatAction(chatId, 'typing')
+			.then(() => true)
+			.catch(() => false)
 
-export async function checkUpdates(chats: Chat[]): Promise<CheckResult[]> {
-	const data: CheckResult[] = []
+	const chatsWithTrackings = await ChatModel.find({
+		trackings: { $exists: true, $ne: [] },
+	})
 
-	for (const chat of chats) {
-		for (const tracking of chat.trackings) {
-			const newTrack = await getTracking(tracking.trackingID)
+	const aliveChats: Chat[] = []
 
-			const oldTrack = tracking.track.map((el) => ({
-				date: el.date,
-				description: el.description,
-				name: el.name,
-			}))
+	for (const chat of chatsWithTrackings) {
+		const isAlive = await isChatAlive(chat.chatId)
 
-			if (!isEqual(oldTrack, newTrack)) {
-				tracking.track = newTrack
-
-				const latestTrack = newTrack[0]
-
-				if (latestTrack) {
-					data.push({
-						chatId: chat.chatId,
-						trackingId: tracking.trackingID,
-						latestTrack,
-					})
-				}
-			}
-
-			tracking.lastCheckAt = new Date()
+		if (isAlive) {
+			aliveChats.push(chat)
 		}
-
-		await chat.save()
 	}
 
-	return data
+	const results = await Promise.allSettled(
+		aliveChats.map(async (chat) => {
+			const updates: {
+				trackingID: string
+				latestTrack: TrackRecord
+			}[] = []
+
+			for (const tracking of chat.trackings) {
+				const updatedTrack = await getUpdatedTrack(chat, tracking.trackingID)
+				if (updatedTrack.length > 0) {
+					tracking.track = updatedTrack
+
+					const latestTrack = updatedTrack[0]
+
+					if (latestTrack) {
+						updates.push({
+							trackingID: tracking.trackingID,
+							latestTrack,
+						})
+					}
+				}
+
+				tracking.lastCheckAt = new Date()
+			}
+
+			await chat.save()
+
+			return { chatId: chat.chatId, updates }
+		}),
+	)
+
+	for (const result of results) {
+		if (result.status === 'rejected') {
+			// eslint-disable-next-line no-console
+			console.log(`Error: ${result.reason}`)
+			continue
+		}
+
+		const { chatId, updates } = result.value
+
+		for (const update of updates) {
+			await bot.telegram.sendMessage(
+				chatId,
+				[
+					update.trackingID,
+					update.latestTrack.date,
+					update.latestTrack.description,
+					update.latestTrack.name,
+					`https://litemf.com/ru/tracking/${update.trackingID}`,
+				]
+					.filter(Boolean)
+					.join('\n'),
+				{ disable_web_page_preview: true },
+			)
+		}
+	}
 }
