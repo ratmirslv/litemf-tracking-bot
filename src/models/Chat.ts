@@ -7,6 +7,7 @@ export interface Chat extends Document {
 		trackingID: string
 		createdAt: Date
 		lastCheckAt?: Date
+		isCompleted: boolean
 		track: {
 			date: string
 			description: string
@@ -23,6 +24,7 @@ export const ChatModel: Model<Chat> = model<Chat>(
 		trackings: [
 			{
 				trackingID: { type: String, required: true },
+				isCompleted: { type: Boolean, required: true },
 				createdAt: { type: Date, required: true },
 				lastCheckAt: { type: Date },
 				track: [

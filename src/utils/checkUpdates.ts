@@ -4,8 +4,6 @@ import { Chat, ChatModel } from '../models/Chat'
 import { TrackRecord } from './getTracking'
 import { getUpdatedTrack } from './getUpdatedTrack'
 
-const isCompleted = (tracking: TrackRecord) => tracking.description === 'Выдано'
-
 export async function checkUpdates<T extends TelegrafContext>(
 	bot: Telegraf<T>,
 ): Promise<void> {
@@ -15,9 +13,7 @@ export async function checkUpdates<T extends TelegrafContext>(
 			.then(() => true)
 			.catch(() => false)
 
-	const chatsWithTrackings = await ChatModel.find({
-		trackings: { $exists: true, $ne: [] },
-	})
+	const chatsWithTrackings = await ChatModel.find({ ['trackings.isCompleted']: false })
 
 	const aliveChats: Chat[] = []
 
@@ -33,19 +29,25 @@ export async function checkUpdates<T extends TelegrafContext>(
 		aliveChats.map(async (chat) => {
 			const updates: {
 				trackingID: string
+				isCompleted: boolean
 				latestTrack: TrackRecord
 			}[] = []
 
-			for (const tracking of chat.trackings) {
+			const inCompleteTrackings = chat.trackings.filter(
+				(tracking) => !tracking.isCompleted,
+			)
+
+			for (const tracking of inCompleteTrackings) {
 				const updatedTrack = await getUpdatedTrack(chat, tracking.trackingID)
-				if (updatedTrack.length > 0) {
+
+				const [latestTrack] = updatedTrack
+
+				if (latestTrack) {
+					const isCompleted = latestTrack.description === 'Выдано'
 					tracking.track = updatedTrack
+					tracking.isCompleted = isCompleted
 
-					const latestTrack = updatedTrack[0]
-
-					if (latestTrack) {
-						updates.push({ trackingID: tracking.trackingID, latestTrack })
-					}
+					updates.push({ trackingID: tracking.trackingID, latestTrack, isCompleted })
 				}
 
 				tracking.lastCheckAt = new Date()
@@ -82,13 +84,7 @@ export async function checkUpdates<T extends TelegrafContext>(
 					{ disable_web_page_preview: true },
 				)
 
-				if (isCompleted(update.latestTrack)) {
-					chat.trackings = chat.trackings.filter(
-						(tracking) => tracking.trackingID !== update.trackingID,
-					)
-
-					await chat.save()
-
+				if (update.isCompleted) {
 					await bot.telegram.sendMessage(
 						chat.chatId,
 						`Завершено отслеживание посылки ${update.trackingID}`,

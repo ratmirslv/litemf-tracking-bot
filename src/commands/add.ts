@@ -14,6 +14,8 @@ export async function add(ctx: TelegrafContext): Promise<unknown> {
 
 	const savedChat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
 
+	const newTracking = { trackingID, createdAt: new Date(), isCompleted: false, track: [] }
+
 	if (savedChat) {
 		if (savedChat.trackings.find((track) => track.trackingID === trackingID)) {
 			return ctx.reply(`Посылка ${trackingID} уже отслеживается`)
@@ -23,17 +25,14 @@ export async function add(ctx: TelegrafContext): Promise<unknown> {
 			return ctx.reply('Нельзя отслеживать более 10 посылок')
 		}
 
-		savedChat.trackings = [
-			...savedChat.trackings,
-			{ trackingID, createdAt: new Date(), track: [] },
-		]
+		savedChat.trackings = [...savedChat.trackings, newTracking]
 
 		await savedChat.save()
 	} else {
 		await ChatModel.create({
 			chatId: String(ctx.chat.id),
 			createdAt: new Date(),
-			trackings: [{ trackingID, createdAt: new Date(), track: [] }],
+			trackings: [newTracking],
 		})
 	}
 
