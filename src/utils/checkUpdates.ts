@@ -4,6 +4,8 @@ import { Chat, ChatModel } from '../models/Chat'
 import { TrackRecord } from './getTracking'
 import { getUpdatedTrack } from './getUpdatedTrack'
 
+const isCompleted = (tracking: TrackRecord) => tracking.description === 'Выдано'
+
 export async function checkUpdates<T extends TelegrafContext>(
 	bot: Telegraf<T>,
 ): Promise<void> {
@@ -42,10 +44,7 @@ export async function checkUpdates<T extends TelegrafContext>(
 					const latestTrack = updatedTrack[0]
 
 					if (latestTrack) {
-						updates.push({
-							trackingID: tracking.trackingID,
-							latestTrack,
-						})
+						updates.push({ trackingID: tracking.trackingID, latestTrack })
 					}
 				}
 
@@ -54,7 +53,7 @@ export async function checkUpdates<T extends TelegrafContext>(
 
 			await chat.save()
 
-			return { chatId: chat.chatId, updates }
+			return { chat, updates }
 		}),
 	)
 
@@ -65,22 +64,40 @@ export async function checkUpdates<T extends TelegrafContext>(
 			continue
 		}
 
-		const { chatId, updates } = result.value
+		const { chat, updates } = result.value
 
 		for (const update of updates) {
-			await bot.telegram.sendMessage(
-				chatId,
-				[
-					update.trackingID,
-					update.latestTrack.date,
-					update.latestTrack.description,
-					update.latestTrack.name,
-					`https://litemf.com/ru/tracking/${update.trackingID}`,
-				]
-					.filter(Boolean)
-					.join('\n'),
-				{ disable_web_page_preview: true },
-			)
+			try {
+				await bot.telegram.sendMessage(
+					chat.chatId,
+					[
+						update.trackingID,
+						update.latestTrack.date,
+						update.latestTrack.description,
+						update.latestTrack.name,
+						`https://litemf.com/ru/tracking/${update.trackingID}`,
+					]
+						.filter(Boolean)
+						.join('\n'),
+					{ disable_web_page_preview: true },
+				)
+
+				if (isCompleted(update.latestTrack)) {
+					chat.trackings = chat.trackings.filter(
+						(tracking) => tracking.trackingID !== update.trackingID,
+					)
+
+					await chat.save()
+
+					await bot.telegram.sendMessage(
+						chat.chatId,
+						`Завершено отслеживание посылки ${update.trackingID}`,
+					)
+				}
+			} catch (err) {
+				// eslint-disable-next-line no-console
+				console.error(`Error sending to chat ${chat.chatId}`)
+			}
 		}
 	}
 }
