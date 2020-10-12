@@ -1,5 +1,7 @@
 import { isEqual } from 'lodash'
+
 import { Chat } from '../models/Chat'
+
 import { getTracking, TrackRecord } from './getTracking'
 
 export async function getUpdatedTrack(

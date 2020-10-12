@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { TelegrafContext } from 'telegraf/typings/context'
+
 import { ChatModel } from '../models/Chat'
 
 export async function status(ctx: TelegrafContext): Promise<unknown> {

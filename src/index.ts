@@ -1,13 +1,14 @@
 import 'dotenv-safe/config'
 
-import ms from 'ms'
 import mongoose from 'mongoose'
+import ms from 'ms'
 import { Telegraf, Stage, session } from 'telegraf'
 import { TelegrafContext } from 'telegraf/typings/context'
-import { checkUpdates } from './utils/checkUpdates'
-import * as commands from './commands'
 import { SceneContext } from 'telegraf/typings/stage'
+
+import * as commands from './commands'
 import { delPackageScene } from './scenes/delPackageScene'
+import { checkUpdates } from './utils/checkUpdates'
 
 interface Context extends TelegrafContext {
 	scene: SceneContext<this>
