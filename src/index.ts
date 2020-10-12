@@ -2,13 +2,25 @@ import 'dotenv-safe/config'
 
 import ms from 'ms'
 import mongoose from 'mongoose'
-import { Telegraf } from 'telegraf'
+import { Telegraf, Stage, session } from 'telegraf'
 import { TelegrafContext } from 'telegraf/typings/context'
 import { checkUpdates } from './utils/checkUpdates'
 import * as commands from './commands'
+import { SceneContext } from 'telegraf/typings/stage'
+import { delPackageScene } from './scenes/delPackageScene'
+
+interface Context extends TelegrafContext {
+	scene: SceneContext<this>
+}
 
 async function main() {
-	const bot = new Telegraf(process.env.BOT_TOKEN!)
+	const bot = new Telegraf<Context>(process.env.BOT_TOKEN)
+
+	const stage = new Stage([delPackageScene], { ttl: 10 })
+
+	bot.use(session())
+
+	bot.use(stage.middleware())
 
 	bot.help(commands.help)
 
@@ -26,15 +38,15 @@ async function main() {
 
 	bot.command('list', commands.list)
 
-	bot.command('add', commands.add)
+	bot.hears(/^LP\d+\s*/, commands.add)
 
-	bot.command('del', commands.del)
+	bot.command('del', (ctx) => ctx.scene.enter(delPackageScene.id))
 
 	bot.command('status', commands.status)
 
 	await bot.launch()
 
-	await mongoose.connect(process.env.MONGODB_URI!, {
+	await mongoose.connect(process.env.MONGODB_URI, {
 		useCreateIndex: true,
 		useNewUrlParser: true,
 		useUnifiedTopology: true,
