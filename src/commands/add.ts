@@ -7,11 +7,7 @@ export async function add(ctx: TelegrafContext): Promise<unknown> {
 		return ctx.reply('?')
 	}
 
-	const [, trackingID] = ctx.message.text.split(' ')
-
-	if (!/LP\d+/.test(trackingID)) {
-		return ctx.replyWithMarkdown('Неверный формат. Пример: `/add LP123456`')
-	}
+	const trackingID = ctx.message.text.trim()
 
 	const savedChat = await ChatModel.findOne({ chatId: String(ctx.chat.id) })
 
