@@ -1,6 +1,6 @@
 {
 	"name": "litemf-tracking-bot",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Check LiteMF package updates",
 	"main": "build/index.js",
 	"engines": {
