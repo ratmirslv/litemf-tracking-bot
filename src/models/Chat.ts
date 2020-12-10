@@ -23,7 +23,7 @@ export const ChatModel: Model<Chat> = model<Chat>(
 		chatId: { type: String, required: true },
 		trackings: [
 			{
-				trackingID: { type: String, required: true },
+				trackingID: { type: String, trim: true, required: true },
 				isCompleted: { type: Boolean, required: true },
 				createdAt: { type: Date, required: true },
 				lastCheckAt: { type: Date },
